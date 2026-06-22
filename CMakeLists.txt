@@ -15,4 +15,5 @@ include_directories(
 add_executable(avionics_sim
     main.c
     embedded_core/src/system_state.c
+    embedded_core/src/sensor_monitor.c
 )
