@@ -112,7 +112,7 @@ static void demo_can_comm(void)
     CanCommParser parser;
     CanCommFrame frame;
     CanCommStatus status;
-    uint8_t received_bytes[] = {0xC5, 0x01, 0x23, 0x02, 0x10, 0x20, 0x5C};
+    uint8_t received_bytes[] = {0xC5, 0x01, 0x23, 0x02, 0x10, 0x20, 0x10, 0x5C};
     uint8_t index;
 
     CircularBuffer_Init(&rx_buffer);
