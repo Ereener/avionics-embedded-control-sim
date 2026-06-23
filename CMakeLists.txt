@@ -17,4 +17,5 @@ add_executable(avionics_sim
     embedded_core/src/system_state.c
     embedded_core/src/sensor_monitor.c
     embedded_core/src/fault_manager.c
+    embedded_core/src/watchdog.c
 )
