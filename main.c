@@ -3,30 +3,13 @@
 #include "sensor_monitor.h"
 #include "fault_manager.h"
 #include "watchdog.h"
+#include "circular_buffer.h"
 
 static void print_system_status(const SystemStateMachine *machine)
 {
     printf("State: %s | Fault: %s\n",
            SystemState_ToString(SystemState_GetCurrentState(machine)),
            FaultLevel_ToString(SystemState_GetCurrentFault(machine)));
-}
-
-static void print_sensor_status(const SensorMonitor *monitor)
-{
-    printf("Temperature: %.2f C | Status: %s\n",
-           monitor->temperature_celsius.engineering_value,
-           SensorStatus_ToString(monitor->temperature_celsius.status));
-
-    printf("Voltage: %.2f V | Status: %s\n",
-           monitor->voltage_volts.engineering_value,
-           SensorStatus_ToString(monitor->voltage_volts.status));
-
-    printf("Actuator Position: %.2f %% | Status: %s\n",
-           monitor->actuator_position_percent.engineering_value,
-           SensorStatus_ToString(monitor->actuator_position_percent.status));
-
-    printf("Sensor Overall Fault: %s\n",
-           FaultLevel_ToString(SensorMonitor_GetOverallFaultLevel(monitor)));
 }
 
 static void print_fault_manager_status(const FaultManager *manager)
@@ -53,16 +36,49 @@ static void process_faults(SystemStateMachine *machine, FaultManager *fault_mana
     SystemState_HandleEvent(machine, fault_event);
 }
 
+static void demo_circular_buffer(void)
+{
+    CircularBuffer rx_buffer;
+    CircularBufferStatus status;
+    uint8_t value;
+    uint8_t received_bytes[] = {0xAA, 0x10, 0x20, 0x30, 0x55};
+    uint8_t i;
+
+    CircularBuffer_Init(&rx_buffer);
+
+    printf("\n=== Circular Buffer UART/RS485 RX Simulation ===\n");
+
+    for (i = 0; i < sizeof(received_bytes); ++i)
+    {
+        status = CircularBuffer_Push(&rx_buffer, received_bytes[i]);
+
+        printf("RX byte: 0x%02X | Push Status: %s | Count: %u\n",
+               received_bytes[i],
+               CircularBufferStatus_ToString(status),
+               CircularBuffer_GetCount(&rx_buffer));
+    }
+
+    printf("\nProcessing received bytes FIFO order:\n");
+
+    while (!CircularBuffer_IsEmpty(&rx_buffer))
+    {
+        status = CircularBuffer_Pop(&rx_buffer, &value);
+
+        printf("Processed byte: 0x%02X | Pop Status: %s | Remaining: %u\n",
+               value,
+               CircularBufferStatus_ToString(status),
+               CircularBuffer_GetCount(&rx_buffer));
+    }
+}
+
 int main(void)
 {
     SystemStateMachine machine;
-    SensorMonitor sensor_monitor;
     FaultManager fault_manager;
     Watchdog watchdog;
     uint32_t tick;
 
     SystemState_Init(&machine);
-    SensorMonitor_Init(&sensor_monitor);
     FaultManager_Init(&fault_manager);
     Watchdog_Init(&watchdog, 5, 3);
 
@@ -72,17 +88,7 @@ int main(void)
     printf("=== Initial System State ===\n");
     print_system_status(&machine);
 
-    printf("\n=== Watchdog Normal Operation ===\n");
-
-    for (tick = 0; tick < 3; ++tick)
-    {
-        Watchdog_Tick(&watchdog);
-        print_watchdog_status(&watchdog);
-    }
-
-    printf("Feeding watchdog...\n");
-    Watchdog_Feed(&watchdog);
-    print_watchdog_status(&watchdog);
+    demo_circular_buffer();
 
     printf("\n=== Watchdog Timeout Scenario ===\n");
 
@@ -104,25 +110,6 @@ int main(void)
     process_faults(&machine, &fault_manager);
 
     printf("\n=== System State After Watchdog Expiration ===\n");
-    print_system_status(&machine);
-
-    printf("\n=== Sensor Fault Scenario ===\n");
-
-    SensorMonitor_UpdateTemperature(&sensor_monitor, 3800);
-
-    if (SensorMonitor_GetOverallFaultLevel(&sensor_monitor) >= FAULT_LEVEL_MAJOR)
-    {
-        FaultManager_ReportFault(
-            &fault_manager,
-            FAULT_CODE_SENSOR_TEMPERATURE_HIGH,
-            SensorMonitor_GetOverallFaultLevel(&sensor_monitor));
-    }
-
-    print_sensor_status(&sensor_monitor);
-    print_fault_manager_status(&fault_manager);
-    process_faults(&machine, &fault_manager);
-
-    printf("\n=== Final System State ===\n");
     print_system_status(&machine);
 
     return 0;
