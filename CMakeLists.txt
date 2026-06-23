@@ -19,4 +19,5 @@ add_executable(avionics_sim
     embedded_core/src/fault_manager.c
     embedded_core/src/watchdog.c
     embedded_core/src/circular_buffer.c
+    embedded_core/src/uart_comm.c
 )

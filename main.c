@@ -4,6 +4,7 @@
 #include "fault_manager.h"
 #include "watchdog.h"
 #include "circular_buffer.h"
+#include "uart_comm.h"
 
 static void print_system_status(const SystemStateMachine *machine)
 {
@@ -71,6 +72,39 @@ static void demo_circular_buffer(void)
     }
 }
 
+static void demo_uart_comm(void)
+{
+    CircularBuffer rx_buffer;
+    UartCommParser parser;
+    UartCommFrame frame;
+    UartCommStatus status;
+    uint8_t received_bytes[] = {0x00, 0xAA, 0x01, 0x02, 0xA5, 0x5A, 0xFC, 0x55};
+    uint8_t index;
+
+    CircularBuffer_Init(&rx_buffer);
+    UartComm_Init(&parser);
+
+    for (index = 0U; index < sizeof(received_bytes); ++index)
+    {
+        (void)CircularBuffer_Push(&rx_buffer, received_bytes[index]);
+    }
+
+    status = UartComm_ProcessRx(&parser, &rx_buffer, &frame);
+
+    printf("\n=== UART Communication Frame Parser ===\n");
+    printf("Parser Status: %s\n", UartCommStatus_ToString(status));
+
+    if (status == UART_COMM_FRAME_READY)
+    {
+        printf("Message ID: 0x%02X | Length: %u | Payload:", frame.message_id, frame.length);
+        for (index = 0U; index < frame.length; ++index)
+        {
+            printf(" 0x%02X", frame.payload[index]);
+        }
+        printf("\n");
+    }
+}
+
 int main(void)
 {
     SystemStateMachine machine;
@@ -89,6 +123,7 @@ int main(void)
     print_system_status(&machine);
 
     demo_circular_buffer();
+    demo_uart_comm();
 
     printf("\n=== Watchdog Timeout Scenario ===\n");
 
