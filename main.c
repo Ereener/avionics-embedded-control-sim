@@ -5,6 +5,7 @@
 #include "watchdog.h"
 #include "circular_buffer.h"
 #include "uart_comm.h"
+#include "can_comm.h"
 
 static void print_system_status(const SystemStateMachine *machine)
 {
@@ -105,6 +106,39 @@ static void demo_uart_comm(void)
     }
 }
 
+static void demo_can_comm(void)
+{
+    CircularBuffer rx_buffer;
+    CanCommParser parser;
+    CanCommFrame frame;
+    CanCommStatus status;
+    uint8_t received_bytes[] = {0xC5, 0x01, 0x23, 0x02, 0x10, 0x20, 0x5C};
+    uint8_t index;
+
+    CircularBuffer_Init(&rx_buffer);
+    CanComm_Init(&parser);
+
+    for (index = 0U; index < sizeof(received_bytes); ++index)
+    {
+        (void)CircularBuffer_Push(&rx_buffer, received_bytes[index]);
+    }
+
+    status = CanComm_ProcessRx(&parser, &rx_buffer, &frame);
+
+    printf("\n=== CAN Communication Frame Parser ===\n");
+    printf("Parser Status: %s\n", CanCommStatus_ToString(status));
+
+    if (status == CAN_COMM_FRAME_READY)
+    {
+        printf("CAN ID: 0x%03X | DLC: %u | Data:", frame.identifier, frame.dlc);
+        for (index = 0U; index < frame.dlc; ++index)
+        {
+            printf(" 0x%02X", frame.data[index]);
+        }
+        printf("\n");
+    }
+}
+
 int main(void)
 {
     SystemStateMachine machine;
@@ -124,6 +158,7 @@ int main(void)
 
     demo_circular_buffer();
     demo_uart_comm();
+    demo_can_comm();
 
     printf("\n=== Watchdog Timeout Scenario ===\n");
 
